@@ -11,7 +11,7 @@ services:
     ports:
       - "3307:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - ${DATA_PATH:-/srv/docker/data/starline-monitor}/mysql:/var/lib/mysql
       - ./init-db:/docker-entrypoint-initdb.d:ro
     command: --default-authentication-plugin=mysql_native_password --innodb-buffer-pool-size=128M
     healthcheck:
@@ -37,9 +37,7 @@ services:
       - starline-net
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    build: ./backend
     container_name: starline-backend
     restart: unless-stopped
     ports:
@@ -52,6 +50,8 @@ services:
       MYSQL_DATABASE: starline_db
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+    volumes:
+      - ${DATA_PATH:-/srv/docker/data/starline-monitor}/logs/backend:/app/logs
     depends_on:
       mysql:
         condition: service_healthy
@@ -78,9 +78,7 @@ services:
       - starline-net
 
   worker:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile
+    build: ./worker
     container_name: starline-worker
     restart: unless-stopped
     environment:
@@ -91,6 +89,8 @@ services:
       MYSQL_DATABASE: starline_db
       POLL_INTERVAL: ${POLL_INTERVAL:-180}
       DB_POOL_SIZE: ${WORKER_DB_POOL_SIZE:-5}
+    volumes:
+      - ${DATA_PATH:-/srv/docker/data/starline-monitor}/logs/worker:/app/logs
     depends_on:
       mysql:
         condition: service_healthy
@@ -119,7 +119,7 @@ services:
     container_name: starline-frontend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3010:3000"
     environment:
       NODE_ENV: production
     depends_on:
@@ -146,9 +146,6 @@ services:
         max-file: "3"
     networks:
       - starline-net
-
-volumes:
-  mysql_data:
 
 networks:
   starline-net:
