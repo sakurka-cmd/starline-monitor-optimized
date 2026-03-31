@@ -13,12 +13,12 @@ interface DeviceCardProps {
 }
 
 export function DeviceCard({ device, onClick, onDelete }: DeviceCardProps) {
-  const formatDate = (date: string | null) => {
+  const formatDate = (date: string | null | undefined) => {
     if (!date) return "Нет данных";
     return new Date(date).toLocaleString("ru-RU");
   };
 
-  const isRecent = (date: string | null) => {
+  const isRecent = (date: string | null | undefined) => {
     if (!date) return false;
     return Date.now() - new Date(date).getTime() < 5 * 60 * 1000;
   };
