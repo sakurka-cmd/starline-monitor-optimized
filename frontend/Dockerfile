@@ -1,8 +1,8 @@
 # Stage 1: Dependencies
 FROM oven/bun:1 AS deps
 WORKDIR /app
-COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile
+COPY package.json ./
+RUN bun install
 
 # Stage 2: Builder
 FROM oven/bun:1 AS builder
@@ -12,6 +12,7 @@ COPY . .
 
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN bun run build
 
