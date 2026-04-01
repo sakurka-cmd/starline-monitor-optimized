@@ -67,11 +67,20 @@ class StarLineAPI:
             self._session = aiohttp.ClientSession(
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Accept": "application/json",
+                    "Accept": "application/json, text/json, */*",
                 },
                 cookies=cookies
             )
         return self._session
+
+    async def _parse_json(self, resp: aiohttp.ClientResponse) -> dict:
+        """Parse JSON response, handling text/json content-type"""
+        text = await resp.text()
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as e:
+            self.logger.error(f"JSON decode error: {e}, response: {text[:200]}")
+            return {}
 
     async def close(self):
         if self._session and not self._session.closed:
@@ -85,7 +94,7 @@ class StarLineAPI:
             session = await self._get_session()
             url = f"{self.WEBAPI_URL}/json/v1/user/{self.user_id}/devices"
             async with session.get(url) as resp:
-                result = await resp.json()
+                result = await self._parse_json(resp)
                 if result.get("code") in [200, "200"]:
                     self.logger.info("Session is valid")
                     return True
@@ -103,7 +112,7 @@ class StarLineAPI:
                 f"{self.SLID_URL}/apiV3/application/getCode",
                 params={"appId": self.app_id, "secret": secret_md5}
             ) as resp:
-                data = await resp.json()
+                data = await self._parse_json(resp)
                 if data.get("state") != 1:
                     self.logger.error(f"getCode failed: {data}")
                     return False
@@ -115,7 +124,7 @@ class StarLineAPI:
                 f"{self.SLID_URL}/apiV3/application/getToken",
                 params={"appId": self.app_id, "secret": secret_md5}
             ) as resp:
-                data = await resp.json()
+                data = await self._parse_json(resp)
                 if data.get("state") != 1:
                     self.logger.error(f"getToken failed: {data}")
                     return False
@@ -128,7 +137,7 @@ class StarLineAPI:
                 headers={"token": app_token},
                 data={"login": self.login, "pass": password_sha1}
             ) as resp:
-                data = await resp.json()
+                data = await self._parse_json(resp)
                 if data.get("state") == 2:
                     self.logger.error(f"2FA required: {data['desc'].get('phone')}")
                     return False
@@ -142,7 +151,7 @@ class StarLineAPI:
                 f"{self.WEBAPI_URL}/json/v2/auth.slid",
                 json={"slid_token": user_token}
             ) as resp:
-                result = await resp.json()
+                result = await self._parse_json(resp)
                 if result.get("code") in ["200", 200]:
                     self.user_id = result.get("user_id")
                 if not self.user_id:
@@ -177,7 +186,7 @@ class StarLineAPI:
                 self.logger.error("Rate limited (429)")
                 return None
             
-            result = await resp.json()
+            result = await self._parse_json(resp)
             devices = []
             
             if "devices" in result and isinstance(result["devices"], list):
@@ -198,7 +207,7 @@ class StarLineAPI:
         async with session.get(f"{self.WEBAPI_URL}/json/v3/device/{device_id}/data") as resp:
             if resp.status == 429:
                 return None
-            result = await resp.json()
+            result = await self._parse_json(resp)
             if result.get("code") in [200, "200"]:
                 data.update(result.get("data", {}))
 
@@ -206,7 +215,7 @@ class StarLineAPI:
         async with session.get(f"{self.WEBAPI_URL}/json/device/{device_id}/state") as resp:
             if resp.status == 429:
                 return None
-            result = await resp.json()
+            result = await self._parse_json(resp)
             if result.get("code") in [200, "200"]:
                 state_data = result.get("state", {})
                 if isinstance(state_data, dict):
